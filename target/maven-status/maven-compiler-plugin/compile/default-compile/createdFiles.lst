@@ -1,0 +1,5 @@
+com/example/demo/service/SimpleCrimeAnalysisService.class
+com/example/demo/controller/SimpleCrimeAnalysisController.class
+com/example/PocApplication.class
+com/example/demo/dto/CrimeStatsDto.class
+com/example/demo/dto/WeaponStatsDto.class

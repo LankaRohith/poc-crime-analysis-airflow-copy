@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  airflow-webserver:
+    image: apache/airflow:2.8.0
+    container_name: airflow-webserver
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=a8YDPU173e3MVp0S5uvOFsLYdLah78hc5SiJ8k3GxMs=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=false
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_USERNAME=admin
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_PASSWORD=admin
+      - AIRFLOW__WEBSERVER__DEFAULT_USER_EMAIL=admin@example.com
+      - AIRFLOW__WEBSERVER__WORKERS=2
+      - AIRFLOW__WEBSERVER__WORKER_TIMEOUT=240
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
+    ports:
+      - "8081:8080"
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com -p admin &&
+        airflow webserver
+      "
+
+  airflow-scheduler:
+    image: apache/airflow:2.8.0
+    container_name: airflow-scheduler
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=a8YDPU173e3MVp0S5uvOFsLYdLah78hc5SiJ8k3GxMs=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=false
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
+    command: >
+      bash -c "
+        while ! airflow db check; do
+          echo 'Waiting for database to be ready...'
+          sleep 5
+        done
+        echo 'Database is ready, starting scheduler...'
+        airflow scheduler
+      "
+
+  postgres:
+    image: postgres:13
+    container_name: airflow-postgres
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  spring-api:
+    image: eclipse-temurin:17-jre
+    container_name: spring-api
+    restart: unless-stopped
+    volumes:
+      - ./target:/app/target
+      - ./data/src_main_resources:/app/src/main/resources
+    ports:
+      - "8080:8080"
+    working_dir: /app
+    command: java -jar target/demo-0.0.1-SNAPSHOT.jar
+
+volumes:
+  postgres_data:
+  airflow_logs:
